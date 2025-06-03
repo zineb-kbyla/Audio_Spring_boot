@@ -253,11 +253,13 @@ elevenlabs.api.url=https://api.elevenlabs.io
 ## ✅ Test de l’API
 
 ```bash
-curl -X POST http://localhost:8080/api/tts/generate      -H "Content-Type: application/json"      -d '{
-  "text": "Bonjour à tous !",
-  "subject": "FRENCH",
-  "contentType": "FLASHCARD_QUESTION"
+curl -X POST http://localhost:8080/api/tts/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Bonjour à tous !",
+    "subject": "FRENCH"
 }'
+
 ```
 
 ---
@@ -328,6 +330,7 @@ public class TTSServiceTest {
                 ttsService.generateTTS("Bonjour", Subject.FRENCH));
     }
 }
+
 ```
 
 ### 2️⃣ Test Web Layer `TTSControllerTest.java`
@@ -353,8 +356,7 @@ class TTSControllerTest {
         String json = """
         {
             "text": "Bonjour à tous !",
-            "subject": "FRENCH",
-            "contentType": "FLASHCARD_QUESTION"
+            "subject": "FRENCH"
         }
         """;
 
@@ -366,6 +368,7 @@ class TTSControllerTest {
             .andExpect(jsonPath("$.audioStream").exists());
     }
 }
+
 ```
 
 ### 3️⃣ Test d’intégration `TTSIntegrationTest.java`
@@ -389,6 +392,7 @@ class TTSIntegrationTest {
             .andExpect(content().contentType("audio/mpeg"));
     }
 }
+
 ```
 
 ### 🛠️ Dépendances de test (`pom.xml`)
