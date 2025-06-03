@@ -44,11 +44,9 @@ src/main/resources/
 @Table(name = "content")
 @Data
 public class Content {
+
     @Id
     private String id;
-
-    @Enumerated(EnumType.STRING)
-    private ContentType type;
 
     @Column(columnDefinition = "TEXT")
     private String text;
@@ -59,20 +57,13 @@ public class Content {
     @Transient
     private byte[] audioStream;
 }
+
 ```
 
 ---
 
-## 📌 Étape 2 : Enums `ContentType.java` et `Subject.java`
+## 📌 Étape 2 : Enum `Subject.java`
 
-```java
-public enum ContentType {
-    FLASHCARD_QUESTION,
-    FLASHCARD_ANSWER,
-    QUIZ_QUESTION,
-    QUIZ_FEEDBACK
-}
-```
 
 ```java
 public enum Subject {
@@ -92,8 +83,8 @@ public enum Subject {
 public class TTSRequest {
     private String text;
     private Subject subject;
-    private ContentType contentType;
 }
+
 ```
 
 ```java
@@ -101,8 +92,8 @@ public class TTSRequest {
 public class TTSResponse {
     private String contentId;
     private byte[] audioStream;
-    private String contentType;
 }
+
 ```
 
 ---
@@ -183,13 +174,14 @@ public class TTSService {
 
     public Content generateContentWithAudio(TTSRequest request) {
         Content content = new Content();
+        content.setId(UUID.randomUUID().toString());
         content.setText(request.getText());
         content.setSubject(request.getSubject());
-        content.setType(request.getContentType());
         content.setAudioStream(generateTTS(request.getText(), request.getSubject()));
         return content;
     }
 }
+
 ```
 
 ---
@@ -214,7 +206,6 @@ public class TTSController {
         TTSResponse response = new TTSResponse();
         response.setContentId(content.getId());
         response.setAudioStream(content.getAudioStream());
-        response.setContentType("audio/mpeg");
 
         return ResponseEntity.ok(response);
     }
@@ -232,11 +223,16 @@ public class TTSController {
         return ResponseEntity.ok().headers(headers).body(audio);
     }
 }
+
 ```
 
 ---
 
-## 📌 Étape 7 : `application.properties`
+
+ 
+
+
+## 📌 Étape 8 : `application.properties`
 
 ```properties
 server.port=8080
