@@ -1,101 +1,418 @@
+# 🎙️ Intégration ElevenLabs TTS avec Spring Boot
 
-# Système de Text-to-Speech (TTS) en Temps Réel – Bewize
-
-## Introduction
-Ce document présente un résumé technique et fonctionnel du système de synthèse vocale (Text-to-Speech, TTS) intégré à l’application éducative **Bewize**. Ce système permet de transformer dynamiquement des contenus textuels (flashcards, quizzcards) en audio afin de favoriser l’inclusion, l’accessibilité et l’interactivité.
-
-## Architecture du Système
-Le système TTS s’appuie sur une architecture distribuée et modulaire :
-
-- **Frontend (React)** : Interface utilisateur riche, interactive, où l’utilisateur peut écouter la lecture vocale des **flashcards** (questions/réponses) et des **quizzcards** (questions/feedback) directement depuis la base de données.
-- **Backend (Spring Boot)** : Serveur d’application centralisé qui gère la logique métier, construit les requêtes vers le service vocal et orchestre les retours.
-- **API ElevenLabs** : Fournisseur de services TTS dans le cloud, capable de générer de la voix à partir de texte multilingue avec un rendu naturel.
-- **Base de Données** : Utilisée pour stocker les éléments pédagogiques textuels et, éventuellement, les fichiers audios générés à des fins de réutilisation ou d’analyse.
-
-## Fonctionnement Général
-Le processus temps réel se déroule comme suit :
-
-1. L’utilisateur déclenche une lecture vocale (via un bouton) sur une **flashcard** ou une **quizzcard**.
-2. Le frontend envoie une requête contenant le **texte à lire**, la **langue souhaitée**, et des **paramètres personnalisés** (ex. : type de voix) au backend.
-3. Le backend prépare et transmet la requête vers l’API ElevenLabs.
-4. L’API génère l’audio correspondant et retourne un fichier de type `MP3`.
-5. Le backend renvoie ce fichier vers le frontend, qui l’exécute instantanément dans le navigateur de l’utilisateur.
-
-## Technologies Utilisées
-- **ReactJS** : Composants dynamiques et interactifs pour la lecture audio.
-- **Spring Boot (Java)** : Traitement sécurisé des requêtes, gestion des API externes.
-- **Howler.js** : Librairie JavaScript pour la lecture efficace et contrôlée des fichiers audio.
-- **ElevenLabs API** : Plateforme de synthèse vocale en ligne avec support multilingue, voix expressives et personnalisables.
-
-## Sécurité et Optimisations
-Le système TTS intègre plusieurs mesures de sécurité et d’optimisation :
-
-### Sécurité
-- Validation et nettoyage des textes envoyés pour éviter les injections ou abus.
-- Limitation de la taille des messages (ex. : 5000 caractères maximum).
-- Utilisation exclusive de connexions **HTTPS** pour chiffrer les communications.
-- Protection contre l’abus avec une limitation du nombre de requêtes (rate limiting).
-
-### Optimisation
-- **Mise en cache** côté serveur pour éviter les appels répétés sur les textes déjà générés.
-- Pré-chargement et pré-génération des audios pour les contenus statiques ou les sessions intensives.
-- Affichage d’indicateurs de chargement pour offrir une meilleure expérience utilisateur.
-
-## Dépannage et Gestion des Erreurs
-Voici quelques pistes de diagnostic :
-
-- **Erreur 401 (Unauthorized)** : Vérifier la validité de la clé API ElevenLabs.
-- **Temps de réponse lent** : Réduire la taille du texte ou utiliser un système de pré-génération.
-- **Absence de son** : Confirmer que le format audio est pris en charge (MP3) par le navigateur.
-- **Erreur côté serveur** : Analyser les logs pour identifier les exceptions au niveau des appels API.
-
-## Structure Backend (Spring Boot)
-
-Voici un aperçu organisationnel de la structure du projet côté backend :
-
-```
-src/
-├── main/
-│   ├── java/
-│   │   └── com/
-│   │       └── bewize/
-│   │           ├── controller/
-│   │           │   └── TTSController.java        # Contrôleur REST exposant l’endpoint TTS
-│   │           ├── service/
-│   │           │   └── TTSService.java           # Service dédié à l’appel ElevenLabs
-│   │           └── dto/
-│   │               └── TTSRequest.java           # Objet de transfert contenant texte + langue
-│   └── resources/
-│       ├── application.properties                # Contient la clé API et l’URL de ElevenLabs
-│       └── static/                               # (optionnel) fichiers statiques
-└── test/
-    └── java/
-        └── com.bewize/                           # Tests unitaires et d’intégration
-```
-
-## Intégration dans Spring Boot
-
-Le composant TTS est intégré comme suit dans l’architecture Spring Boot :
-
-- **TTSController** : Expose un point d’entrée `/api/tts/generate` en POST.
-- **TTSService** (recommandé) : Contient la logique d’appel vers l’API ElevenLabs. Ce découpage permet une séparation des responsabilités (Controller vs logique métier).
-- **TTSRequest** : Classe simple utilisée pour transférer le contenu textuel et la langue depuis le frontend.
-- **application.properties** : Fichier de configuration dans lequel la clé API et l’URL du service TTS sont stockées, typiquement :
-  ```
-  elevenlabs.api.key=your-api-key
-  elevenlabs.api.url=https://api.elevenlabs.io/v1/text-to-speech
-  ```
-
-Cette architecture permet de maintenir une application modulaire, testable, et facile à faire évoluer.
-
-## Perspectives d’Amélioration
-Le système a été conçu pour évoluer facilement :
-
-- Permettre à l’utilisateur de **choisir sa voix préférée** parmi un catalogue de voix multilingues.
-- Ajouter des **paramètres ajustables** : vitesse de lecture, intonation, expressivité.
-- Mettre en place un **historique d’audios générés** pour une réécoute ou un suivi pédagogique.
-- Étudier l’intégration d’un moteur **TTS local (offline)** pour les environnements sans connexion Internet.
+Ce projet Spring Boot montre comment intégrer l’API **ElevenLabs** pour générer de la synthèse vocale (TTS) en temps réel.
 
 ---
 
-**Conclusion** : Le système TTS pour Bewize représente une réelle avancée technologique et pédagogique, en rendant les contenus accessibles à tous, particulièrement aux personnes en situation de handicap visuel ou ayant des difficultés de lecture. Il s’inscrit pleinement dans une démarche inclusive et innovante.
+## 📁 Structure du Projet
+
+```text
+src/main/java/com/bewize/tts/
+├── config/
+│   ├── WebConfig.java
+│   └── ElevenLabsConfig.java
+├── controller/
+│   ├── TTSController.java
+│   └── ContentController.java
+├── model/
+│   ├── Content.java
+│   ├── ContentType.java
+│   ├── Subject.java
+│   └── dto/
+│       ├── TTSRequest.java
+│       └── TTSResponse.java
+├── repository/
+│   └── ContentRepository.java
+├── service/
+│   ├── TTSService.java
+│   └── ContentService.java
+└── exception/
+    ├── GlobalExceptionHandler.java
+    └── TTSServiceException.java
+
+src/main/resources/
+├── application.properties
+└── data.sql
+```
+
+---
+
+## 📌 Étape 1 : Entité `Content.java`
+
+```java
+@Entity
+@Table(name = "content")
+@Data
+public class Content {
+    @Id
+    private String id;
+
+    @Enumerated(EnumType.STRING)
+    private ContentType type;
+
+    @Column(columnDefinition = "TEXT")
+    private String text;
+
+    @Enumerated(EnumType.STRING)
+    private Subject subject;
+
+    @Transient
+    private byte[] audioStream;
+}
+```
+
+---
+
+## 📌 Étape 2 : Enums `ContentType.java` et `Subject.java`
+
+```java
+public enum ContentType {
+    FLASHCARD_QUESTION,
+    FLASHCARD_ANSWER,
+    QUIZ_QUESTION,
+    QUIZ_FEEDBACK
+}
+```
+
+```java
+public enum Subject {
+    ENGLISH,
+    FRENCH,
+    MATH,
+    ARABIC
+}
+```
+
+---
+
+## 📌 Étape 3 : DTOs `TTSRequest.java` et `TTSResponse.java`
+
+```java
+@Data
+public class TTSRequest {
+    private String text;
+    private Subject subject;
+    private ContentType contentType;
+}
+```
+
+```java
+@Data
+public class TTSResponse {
+    private String contentId;
+    private byte[] audioStream;
+    private String contentType;
+}
+```
+
+---
+
+## 📌 Étape 4 : Configuration `ElevenLabsConfig.java`
+
+```java
+@Configuration
+public class ElevenLabsConfig {
+
+    @Value("${elevenlabs.api.key}")
+    private String apiKey;
+
+    @Value("${elevenlabs.api.url}")
+    private String apiUrl;
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    public String getApiUrl() {
+        return apiUrl;
+    }
+}
+```
+
+---
+
+## 📌 Étape 5 : Service `TTSService.java`
+
+```java
+@Service
+public class TTSService {
+
+    private final RestTemplate restTemplate;
+    private final ElevenLabsConfig elevenLabsConfig;
+
+    private static final Map<Subject, String> VOICE_IDS = Map.of(
+        Subject.ENGLISH, "9BWtsMINqrJLrRacOk9x",
+        Subject.FRENCH, "pFZP5JQG7iQjIQuC4Bku",
+        Subject.MATH, "pFZP5JQG7iQjIQuC4Bku",
+        Subject.ARABIC, "tavIIPLplRB883FzWU0V"
+    );
+
+    public TTSService(RestTemplate restTemplate, ElevenLabsConfig config) {
+        this.restTemplate = restTemplate;
+        this.elevenLabsConfig = config;
+    }
+
+    public byte[] generateTTS(String text, Subject subject) {
+        String voiceId = VOICE_IDS.getOrDefault(subject, VOICE_IDS.get(Subject.FRENCH));
+        String url = String.format("%s/v1/text-to-speech/%s", elevenLabsConfig.getApiUrl(), voiceId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("xi-api-key", elevenLabsConfig.getApiKey());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = Map.of(
+            "text", text,
+            "model_id", "eleven_multilingual_v2",
+            "voice_settings", Map.of("stability", 0.5, "similarity_boost", 0.75, "speed", 1.0)
+        );
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+        ResponseEntity<byte[]> response = restTemplate.exchange(url, HttpMethod.POST, request, byte[].class);
+
+        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            return response.getBody();
+        } else {
+            throw new TTSServiceException("Erreur API: " + response.getStatusCode());
+        }
+    }
+
+    public Content generateContentWithAudio(TTSRequest request) {
+        Content content = new Content();
+        content.setText(request.getText());
+        content.setSubject(request.getSubject());
+        content.setType(request.getContentType());
+        content.setAudioStream(generateTTS(request.getText(), request.getSubject()));
+        return content;
+    }
+}
+```
+
+---
+
+## 📌 Étape 6 : Contrôleur `TTSController.java`
+
+```java
+@RestController
+@RequestMapping("/api/tts")
+public class TTSController {
+
+    private final TTSService ttsService;
+
+    public TTSController(TTSService service) {
+        this.ttsService = service;
+    }
+
+    @PostMapping("/generate")
+    public ResponseEntity<TTSResponse> generate(@RequestBody TTSRequest request) {
+        Content content = ttsService.generateContentWithAudio(request);
+
+        TTSResponse response = new TTSResponse();
+        response.setContentId(content.getId());
+        response.setAudioStream(content.getAudioStream());
+        response.setContentType("audio/mpeg");
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/stream")
+    public ResponseEntity<byte[]> streamAudio(@RequestParam String text,
+                                              @RequestParam Subject subject) {
+        byte[] audio = ttsService.generateTTS(text, subject);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("audio/mpeg"));
+        headers.set("Content-Disposition", "inline; filename=\"tts.mp3\"");
+        headers.setContentLength(audio.length);
+
+        return ResponseEntity.ok().headers(headers).body(audio);
+    }
+}
+```
+
+---
+
+## 📌 Étape 7 : `application.properties`
+
+```properties
+server.port=8080
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/dev
+spring.datasource.username=dev_user
+spring.datasource.password=dev_pass
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+elevenlabs.api.key=YOUR_API_KEY
+elevenlabs.api.url=https://api.elevenlabs.io
+```
+
+---
+
+## ✅ Test de l’API
+
+```bash
+curl -X POST http://localhost:8080/api/tts/generate      -H "Content-Type: application/json"      -d '{
+  "text": "Bonjour à tous !",
+  "subject": "FRENCH",
+  "contentType": "FLASHCARD_QUESTION"
+}'
+```
+
+---
+
+## 🧪 Tests
+
+### 📁 Structure des tests
+
+```text
+src/test/java/com/bewize/tts/
+├── service/
+│   └── TTSServiceTest.java
+├── controller/
+│   └── TTSControllerTest.java
+└── integration/
+    └── TTSIntegrationTest.java
+```
+
+### 1️⃣ Test unitaire `TTSServiceTest.java`
+
+```java
+@ExtendWith(MockitoExtension.class)
+public class TTSServiceTest {
+
+    @Mock
+    private RestTemplate restTemplate;
+
+    @Mock
+    private ElevenLabsConfig config;
+
+    private TTSService ttsService;
+
+    @BeforeEach
+    void setUp() {
+        when(config.getApiKey()).thenReturn("fake-api-key");
+        when(config.getApiUrl()).thenReturn("https://api.elevenlabs.io");
+        ttsService = new TTSService(restTemplate, config);
+    }
+
+    @Test
+    void testGenerateTTS_success() {
+        byte[] fakeAudio = "audio".getBytes(StandardCharsets.UTF_8);
+        ResponseEntity<byte[]> response = new ResponseEntity<>(fakeAudio, HttpStatus.OK);
+
+        when(restTemplate.exchange(
+                anyString(),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                eq(byte[].class)
+        )).thenReturn(response);
+
+        byte[] result = ttsService.generateTTS("Bonjour", Subject.FRENCH);
+        assertArrayEquals(fakeAudio, result);
+    }
+
+    @Test
+    void testGenerateTTS_failure() {
+        ResponseEntity<byte[]> response = new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+
+        when(restTemplate.exchange(
+                anyString(),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                eq(byte[].class)
+        )).thenReturn(response);
+
+        assertThrows(TTSServiceException.class, () ->
+                ttsService.generateTTS("Bonjour", Subject.FRENCH));
+    }
+}
+```
+
+### 2️⃣ Test Web Layer `TTSControllerTest.java`
+
+```java
+@WebMvcTest(TTSController.class)
+class TTSControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private TTSService ttsService;
+
+    @Test
+    void testGenerateEndpoint_returnsAudio() throws Exception {
+        Content content = new Content();
+        content.setId("123");
+        content.setAudioStream("audio".getBytes());
+
+        when(ttsService.generateContentWithAudio(any(TTSRequest.class))).thenReturn(content);
+
+        String json = """
+        {
+            "text": "Bonjour à tous !",
+            "subject": "FRENCH",
+            "contentType": "FLASHCARD_QUESTION"
+        }
+        """;
+
+        mockMvc.perform(post("/api/tts/generate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.contentId").value("123"))
+            .andExpect(jsonPath("$.audioStream").exists());
+    }
+}
+```
+
+### 3️⃣ Test d’intégration `TTSIntegrationTest.java`
+
+> 👉 Optionnel : pour isoler l’API externe, tu peux utiliser **WireMock**.
+
+```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+class TTSIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Test
+    void integrationTestGenerateTTS() throws Exception {
+        mockMvc.perform(get("/api/tts/stream")
+                .param("text", "Bonjour")
+                .param("subject", "FRENCH"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("audio/mpeg"));
+    }
+}
+```
+
+### 🛠️ Dépendances de test (`pom.xml`)
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-test</artifactId>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.mockito</groupId>
+    <artifactId>mockito-junit-jupiter</artifactId>
+    <scope>test</scope>
+</dependency>
+```
+
+---
+
+## 👨‍💻 Auteur
+
+Développé par votre équipe avec ❤️
