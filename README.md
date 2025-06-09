@@ -134,7 +134,7 @@ public class ElevenLabsConfig {
 public class TTSService {
 
     private final RestTemplate restTemplate;
-    private final ElevenLabsConfig elevenLabsConfig;
+    private final ElevenLabsConfig config;
 
     private static final Map<Subject, String> VOICE_IDS = Map.of(
         Subject.ENGLISH, "9BWtsMINqrJLrRacOk9x",
@@ -143,44 +143,35 @@ public class TTSService {
         Subject.ARABIC, "tavIIPLplRB883FzWU0V"
     );
 
-    public TTSService(RestTemplate restTemplate, ElevenLabsConfig config) {
-        this.restTemplate = restTemplate;
-        this.elevenLabsConfig = config;
-    }
-
     public byte[] generateTTS(String text, Subject subject) {
         String voiceId = VOICE_IDS.getOrDefault(subject, VOICE_IDS.get(Subject.FRENCH));
-        String url = String.format("%s/v1/text-to-speech/%s", elevenLabsConfig.getApiUrl(), voiceId);
+        String url = String.format("%s/v1/text-to-speech/%s", config.getApiUrl(), voiceId);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("xi-api-key", elevenLabsConfig.getApiKey());
+        headers.set("xi-api-key", config.getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = Map.of(
             "text", text,
             "model_id", "eleven_multilingual_v2",
-            "voice_settings", Map.of("stability", 0.5, "similarity_boost", 0.75, "speed", 1.0)
+            "voice_settings", Map.of("stability", 0.5, "similarity_boost", 0.75)
         );
 
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<byte[]> response = restTemplate.exchange(url, HttpMethod.POST, request, byte[].class);
+        ResponseEntity<byte[]> response = restTemplate.exchange(
+            url,
+            HttpMethod.POST,
+            new HttpEntity<>(body, headers),
+            byte[].class
+        );
 
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            return response.getBody();
-        } else {
-            throw new TTSServiceException("Erreur API: " + response.getStatusCode());
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            throw new TTSServiceException("API Error: " + response.getStatusCode());
         }
-    }
 
-    public Content generateContentWithAudio(TTSRequest request) {
-        Content content = new Content();
-        content.setId(UUID.randomUUID().toString());
-        content.setText(request.getText());
-        content.setSubject(request.getSubject());
-        content.setAudioStream(generateTTS(request.getText(), request.getSubject()));
-        return content;
+        return response.getBody();
     }
 }
+
 
 ```
 
@@ -195,34 +186,19 @@ public class TTSController {
 
     private final TTSService ttsService;
 
-    public TTSController(TTSService service) {
-        this.ttsService = service;
-    }
-
-    @PostMapping("/generate")
-    public ResponseEntity<TTSResponse> generate(@RequestBody TTSRequest request) {
-        Content content = ttsService.generateContentWithAudio(request);
-
-        TTSResponse response = new TTSResponse();
-        response.setContentId(content.getId());
-        response.setAudioStream(content.getAudioStream());
-
-        return ResponseEntity.ok(response);
-    }
-
     @GetMapping("/stream")
-    public ResponseEntity<byte[]> streamAudio(@RequestParam String text,
-                                              @RequestParam Subject subject) {
+    public ResponseEntity<byte[]> streamAudio(
+        @RequestParam String text,
+        @RequestParam Subject subject
+    ) {
         byte[] audio = ttsService.generateTTS(text, subject);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("audio/mpeg"));
-        headers.set("Content-Disposition", "inline; filename=\"tts.mp3\"");
-        headers.setContentLength(audio.length);
-
-        return ResponseEntity.ok().headers(headers).body(audio);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("audio/mpeg"))
+            .header("Content-Disposition", "inline; filename=\"tts.mp3\"")
+            .body(audio);
     }
 }
+
 
 ```
 
